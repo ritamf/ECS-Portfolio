@@ -98,3 +98,118 @@ for (si in sigmas) {
   print(k)
   print(k/10000*100)
 }
+
+
+##ex3
+
+# amostrador independente
+
+# misturador de normais e quer-se estimar o parametro do peso da mistura
+
+m = 10000 # comprimento da cadeia
+xt= numeric(m)
+a = 1 # parametro da distribuicao proponente beta(a,b)
+b = 1 # parametro da distribuicao proponente beta(a,b)
+
+p = 0.2 # parametro da mistura
+n = 30 # tamanho da amostra
+mu = c(0,5) # parametro de densidades normais
+sigma = c(1,1)
+
+# gerar amostra observada da mistura
+i = sample(1:2, size=n, replace=TRUE, prob=c(p,1-p))
+i
+x = norm(n,mu[i],sigma[i])
+x
+
+# implementar M-H usando amostrador da cadeia independente
+
+u = runif(m)
+y = rbeta(m,a,b) # distribuicao proponente
+xt[1] = 0.5 # valor inicial
+
+for (i in 2:m) {
+  fy = y[i] * dnorm(x,mu[1], sigma[ 1 + (1-y[i])*dnorm(x,mu[2],sigma[2]) ])
+  
+  fx = xt[i-1]*dnorm(x,mu[2],sigma[2])
+  
+  r = prod(fy/fx) * dbeta(xt[i-1],a,b)/(dbeta(y[i],a,b))
+
+  if (u[i]<=r) 
+    xt[i]=y[1]
+  else
+    xt[i]=xt[i-1]
+}
+xt
+mean(xt) # estimativa do peso da mistura
+
+plot(xt, type="1", ylab="p")
+hist(xt[1000:m],main="",xlab="p",prob=TRUE) # hist baseado freq absolutas
+print(mean(xt[1001:m]))
+
+
+##ex5
+
+# inicializar constantes e parametros
+
+N = 10000 # comprimento da cadeia
+burn = 2000 # aquecimento
+
+X = matrix(0,N,2) # cadeia, amostra bivariada
+X
+
+rho = 0.75
+mu1 = 0
+mu2 = 2
+sigma1 = 1
+sigma2 = 0.5
+
+s1 = sqrt(1-rho^2)*sigma1 # desvio padrao da condicional completa de X1
+s2 = sqrt(1-rho^2)*sigma2 # desvio padrao da condicional completa de X2
+
+# gerar a cadeia
+
+X[1,] = c(mu1,mu2) # valor inicial
+X[1,]
+
+for (i in 2:N) {
+  x2 = X[i-1,2]
+  m1 = mu1 + rho * (x2-mu2) * sigma1 / sigma2 # media da cond. comp1 de X1|x2
+  X[i,1] = rnorm(1,m1,s1) # gerar valor de x1, usando a correspondente cond
+  x1 = X[i,1] # valor gerado anteriormente para x1
+  m2 = mu2 + rho * (x1-mu1) * sigma2/sigma1 # media da cond.comp1 de X2|x1
+  X[i,2] = rnorm(1,m2,s2) # gerar valor de x2, usando a correspondente cond 
+}
+X
+
+# a geracao de valores pares da normal multivariada esta concluida
+
+# usar library (coda) para ver trajetoria, estudar convergencia da CM
+
+install.packages("coda")
+library(coda)
+
+mcmcX = mcmc(X)
+plot(mcmcX) # trace - valor de x, tem aleatoriedade, media ≃ 0
+
+# plot de percentis (evolução)
+cumuplot(mcmc(X))
+
+geweke.diag(mcmc(X)) # valor do teste (compara medias)
+
+# este grafico mostra 2 bandas (≃96%)
+# quase todos os pontos estao dentro da banda
+geweke.plot(mcmc(X),frac1=0.1,frac2=0.5)
+
+b = 2000
+
+X = X[b:N,]
+
+colMeans(X)
+summary(X)
+cov(X)
+cor(X)
+
+plot(X)
+boxplot(X)
+
